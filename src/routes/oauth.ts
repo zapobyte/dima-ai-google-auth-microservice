@@ -23,15 +23,36 @@ function buildRedirectUri(): string {
   return `${config.baseUrl}/auth/google/callback`;
 }
 
+function parseWorkspaceId(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.trunc(n);
+  if (i <= 0) return null;
+  return i;
+}
+
+function parseNonEmptyString(v: unknown): string | null {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  return s;
+}
+
 export async function connect(req: Request, res: Response) {
   // #endregion
   const service = parseService(req.query.service);
   const userIdRaw = req.query.userId;
+  const workspaceId = parseWorkspaceId(req.query.workspaceId);
+  const workspaceSlug = parseNonEmptyString(req.query.workspaceSlug);
+  const agentId = parseNonEmptyString(req.query.agentId);
   const returnTo = validateReturnTo(req.query.returnTo ? String(req.query.returnTo) : null);
 
   const userId = Number(userIdRaw);
   if (!service) return res.status(400).json({ success: false, error: "Missing or invalid service" });
   if (!Number.isFinite(userId) || userId <= 0) return res.status(400).json({ success: false, error: "Missing or invalid userId" });
+  if (!workspaceId) return res.status(400).json({ success: false, error: "Missing or invalid workspaceId" });
+  if (!workspaceSlug) return res.status(400).json({ success: false, error: "Missing or invalid workspaceSlug" });
+  if (!agentId) return res.status(400).json({ success: false, error: "Missing or invalid agentId" });
   if (!returnTo) return res.status(400).json({ success: false, error: "Missing or invalid returnTo" });
 
   const redirectUri = buildRedirectUri();
@@ -46,6 +67,9 @@ export async function connect(req: Request, res: Response) {
     method: req.method,
     path: req.originalUrl || req.url,
     userId,
+    workspaceId,
+    workspaceSlug,
+    agentId,
     googleService: service,
     redirectUriHost: (() => {
       try {
@@ -58,10 +82,15 @@ export async function connect(req: Request, res: Response) {
 
   const oauth2Client = createOAuthClient(redirectUri);
 
+  const connectionId = randomUUID();
   const state = Buffer.from(
     JSON.stringify({
       token: randomUUID(),
+      connectionId,
       userId,
+      workspaceId,
+      workspaceSlug,
+      agentId,
       service,
       returnTo,
     })
@@ -87,6 +116,10 @@ export async function connect(req: Request, res: Response) {
     method: req.method,
     path: req.originalUrl || req.url,
     userId,
+    workspaceId,
+    workspaceSlug,
+    agentId,
+    connectionId,
     googleService: service,
     hasState: true,
     scopesCount: getScopesForService(service).length + 2,
@@ -130,16 +163,28 @@ export async function callback(req: Request, res: Response) {
 
     const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as {
       userId: number;
+      workspaceId: number;
+      workspaceSlug: string;
+      agentId: string;
+      connectionId: string;
       service: GoogleService;
       returnTo: string;
     };
 
     const service = parseService(decoded?.service);
     const userId = Number(decoded?.userId);
+    const workspaceId = parseWorkspaceId(decoded?.workspaceId);
+    const workspaceSlug = parseNonEmptyString(decoded?.workspaceSlug);
+    const agentId = parseNonEmptyString(decoded?.agentId);
+    const connectionId = parseNonEmptyString(decoded?.connectionId);
     const returnTo = validateReturnTo(decoded?.returnTo ? String(decoded.returnTo) : null);
 
     if (!service) throw new Error("Invalid state.service");
     if (!Number.isFinite(userId) || userId <= 0) throw new Error("Invalid state.userId");
+    if (!workspaceId) throw new Error("Invalid state.workspaceId");
+    if (!workspaceSlug) throw new Error("Invalid state.workspaceSlug");
+    if (!agentId) throw new Error("Invalid state.agentId");
+    if (!connectionId) throw new Error("Invalid state.connectionId");
     if (!returnTo) throw new Error("Invalid state.returnTo");
 
     const redirectUri = buildRedirectUri();
@@ -154,6 +199,10 @@ export async function callback(req: Request, res: Response) {
       method: req.method,
       path: req.originalUrl || req.url,
       userId,
+      workspaceId,
+      workspaceSlug,
+      agentId,
+      connectionId,
       googleService: service,
       returnToOrigin: (() => {
         try {
@@ -172,7 +221,16 @@ export async function callback(req: Request, res: Response) {
     });
 
     try {
-      await exchangeCodeAndStoreTokens({ userId, service, code, redirectUri });
+      await exchangeCodeAndStoreTokens({
+        userId,
+        workspaceId,
+        workspaceSlug,
+        agentId,
+        connectionId,
+        service,
+        code,
+        redirectUri,
+      });
       logger.info({
         event: "oauth_token_exchange_succeeded",
         message: "OAuth code exchanged and tokens stored",
@@ -181,6 +239,10 @@ export async function callback(req: Request, res: Response) {
         method: req.method,
         path: req.originalUrl || req.url,
         userId,
+        workspaceId,
+        workspaceSlug,
+        agentId,
+        connectionId,
         googleService: service,
       });
     } catch (err) {
@@ -192,6 +254,10 @@ export async function callback(req: Request, res: Response) {
         method: req.method,
         path: req.originalUrl || req.url,
         userId,
+        workspaceId,
+        workspaceSlug,
+        agentId,
+        connectionId,
         googleService: service,
         error: err,
       });

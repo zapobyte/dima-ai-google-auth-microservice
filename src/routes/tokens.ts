@@ -15,6 +15,21 @@ function buildRedirectUri(): string {
   return `${config.baseUrl}/auth/google/callback`;
 }
 
+function parseWorkspaceId(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.trunc(n);
+  if (i <= 0) return null;
+  return i;
+}
+
+function parseNonEmptyString(v: unknown): string | null {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  return s;
+}
+
 export async function getToken(req: Request, res: Response) {
   const service = parseService(req.params.service);
   if (!service) {
@@ -34,6 +49,13 @@ export async function getToken(req: Request, res: Response) {
   if (!userId) return res.status(401).json({ success: false, error: "Unauthorized" });
   req.userId = userId;
 
+  const workspaceId = parseWorkspaceId(req.query.workspaceId);
+  const workspaceSlug = parseNonEmptyString(req.query.workspaceSlug);
+  const agentId = parseNonEmptyString(req.query.agentId);
+  if (!workspaceId) return res.status(400).json({ success: false, error: "Missing or invalid workspaceId" });
+  if (!workspaceSlug) return res.status(400).json({ success: false, error: "Missing or invalid workspaceSlug" });
+  if (!agentId) return res.status(400).json({ success: false, error: "Missing or invalid agentId" });
+
   logger.info({
     event: "service_token_requested",
     message: "Service access token requested",
@@ -42,12 +64,17 @@ export async function getToken(req: Request, res: Response) {
     method: req.method,
     path: req.originalUrl || req.url,
     userId,
+    workspaceId,
+    workspaceSlug,
+    agentId,
     googleService: service,
   });
 
   try {
     const token = await getValidAccessToken({
       userId,
+      workspaceId,
+      agentId,
       service,
       redirectUri: buildRedirectUri(),
       requestId: req.requestId,
@@ -64,6 +91,9 @@ export async function getToken(req: Request, res: Response) {
       method: req.method,
       path: req.originalUrl || req.url,
       userId,
+      workspaceId,
+      workspaceSlug,
+      agentId,
       googleService: service,
       error: e,
     });

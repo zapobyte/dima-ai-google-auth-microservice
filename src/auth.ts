@@ -7,7 +7,6 @@ import {
   createSession,
   findSessionByRefreshHash,
   getTokenRow,
-  listGrantedServices,
   revokeSession,
   touchSession,
   upsertTokens,
@@ -56,11 +55,9 @@ export function createOAuthClient(redirectUri: string) {
 
 export function issueJwt(userId: number): string {
   const u = getUser(userId);
-  const grantedServices = listGrantedServices(userId) as GoogleService[];
   const payload: JwtPayload = {
     userId,
     email: u?.email ?? null,
-    grantedServices,
   };
   return jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresInSeconds,
@@ -155,6 +152,10 @@ export function revokeRefreshSession(refreshToken: string): boolean {
 
 export async function exchangeCodeAndStoreTokens(params: {
   userId: number;
+  workspaceId: number;
+  workspaceSlug: string;
+  agentId: string;
+  connectionId: string;
   service: GoogleService;
   code: string;
   redirectUri: string;
@@ -179,22 +180,28 @@ export async function exchangeCodeAndStoreTokens(params: {
   upsertUser({ id: params.userId, email, name, picture });
   upsertTokens({
     userId: params.userId,
+    workspaceId: params.workspaceId,
+    workspaceSlug: params.workspaceSlug,
+    agentId: params.agentId,
     service: params.service,
     accessToken: tokens.access_token || null,
     refreshToken: tokens.refresh_token || null,
     expiryDate: typeof tokens.expiry_date === "number" ? tokens.expiry_date : null,
     scopes: tokens.scope || getScopesForService(params.service).join(" "),
+    connectionId: params.connectionId,
   });
 }
 
 export async function getValidAccessToken(params: {
   userId: number;
+  workspaceId: number;
+  agentId: string;
   service: GoogleService;
   redirectUri: string;
   requestId?: string;
   traceparent?: string;
 }) {
-  const row = getTokenRow(params.userId, params.service);
+  const row = getTokenRow(params.userId, params.workspaceId, params.agentId, params.service);
   if (!row?.refresh_token) return null;
 
   const now = Date.now();
@@ -208,6 +215,8 @@ export async function getValidAccessToken(params: {
       requestId: params.requestId,
       traceparent: params.traceparent,
       userId: params.userId,
+      workspaceId: params.workspaceId,
+      agentId: params.agentId,
       googleService: params.service,
     });
     return row.access_token;
@@ -219,6 +228,8 @@ export async function getValidAccessToken(params: {
     requestId: params.requestId,
     traceparent: params.traceparent,
     userId: params.userId,
+    workspaceId: params.workspaceId,
+    agentId: params.agentId,
     googleService: params.service,
     expiresAt,
   });
@@ -241,6 +252,8 @@ export async function getValidAccessToken(params: {
       requestId: params.requestId,
       traceparent: params.traceparent,
       userId: params.userId,
+      workspaceId: params.workspaceId,
+      agentId: params.agentId,
       googleService: params.service,
       error: e,
     });
@@ -249,11 +262,15 @@ export async function getValidAccessToken(params: {
 
   upsertTokens({
     userId: params.userId,
+    workspaceId: row.workspace_id,
+    workspaceSlug: row.workspace_slug,
+    agentId: row.agent_id,
     service: params.service,
     accessToken: credentials.access_token || row.access_token || null,
     refreshToken: credentials.refresh_token || null,
     expiryDate: typeof credentials.expiry_date === "number" ? credentials.expiry_date : row.expiry_date,
     scopes: credentials.scope || row.scopes || null,
+    connectionId: row.connection_id ?? null,
   });
 
   logger.info({
@@ -262,6 +279,8 @@ export async function getValidAccessToken(params: {
     requestId: params.requestId,
     traceparent: params.traceparent,
     userId: params.userId,
+    workspaceId: params.workspaceId,
+    agentId: params.agentId,
     googleService: params.service,
   });
 
