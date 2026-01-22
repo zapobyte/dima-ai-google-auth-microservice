@@ -41,12 +41,12 @@ Note: the suffix rule does not include the apex domain; add `https://dima-ai.com
 
 ### API summary
 - **GET** `/health`
-- **GET** `/auth/google/connect?service=<service>&userId=<dimaUserId>&returnTo=<url>`
+- **GET** `/auth/google/connect?service=<service>&userId=<dimaUserId>&workspaceId=<workspaceId>&workspaceSlug=<workspaceSlug>&agentId=<agentId>&returnTo=<url>`
 - **GET** `/auth/google/callback`
 - **POST** `/auth/refresh` body `{ "refreshToken": "..." }`
 - **POST** `/auth/logout` body `{ "refreshToken": "..." }`
-- **GET** `/auth/status` (Bearer JWT)
-- **GET** `/tokens/:service` (Bearer JWT)
+- **GET** `/auth/status?workspaceId=<workspaceId>&workspaceSlug=<workspaceSlug>` (Bearer JWT)
+- **GET** `/tokens/:service?workspaceId=<workspaceId>&workspaceSlug=<workspaceSlug>&agentId=<agentId>` (Bearer JWT)
 
 ### DIMA integration
 The DIMA server stores the microservice refresh token per-user in its DB (encrypted) and requests service access tokens as needed.

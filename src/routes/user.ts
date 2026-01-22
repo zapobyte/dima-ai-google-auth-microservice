@@ -1,13 +1,32 @@
 import type { Request, Response } from "express";
-import { deleteAllTokensForUser, getUser, listGrantedServices } from "../database";
+import { deleteAllTokensForUser, getUser, listConnections } from "../database";
 import { issueJwt, revokeRefreshSession, rotateRefreshSession } from "../auth";
-import type { GoogleService } from "../types";
 import { logger } from "../utils/logger";
+
+function parseWorkspaceId(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.trunc(n);
+  if (i <= 0) return null;
+  return i;
+}
+
+function parseNonEmptyString(v: unknown): string | null {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  return s;
+}
 
 export function status(req: Request, res: Response) {
   const userId = req.auth?.userId;
   if (!userId) return res.status(401).json({ success: false, error: "Unauthorized" });
   req.userId = userId;
+
+  const workspaceId = parseWorkspaceId(req.query.workspaceId);
+  const workspaceSlug = parseNonEmptyString(req.query.workspaceSlug);
+  if (!workspaceId) return res.status(400).json({ success: false, error: "Missing or invalid workspaceId" });
+  if (!workspaceSlug) return res.status(400).json({ success: false, error: "Missing or invalid workspaceSlug" });
 
   logger.info({
     event: "auth_status_requested",
@@ -17,16 +36,23 @@ export function status(req: Request, res: Response) {
     method: req.method,
     path: req.originalUrl || req.url,
     userId,
+    workspaceId,
+    workspaceSlug,
   });
 
   const u = getUser(userId);
-  const grantedServices = listGrantedServices(userId) as GoogleService[];
+  const connections = listConnections(userId, workspaceId).map((c) => ({
+    agentId: c.agent_id,
+    service: c.service,
+  }));
 
   return res.json({
     success: true,
     data: {
       user: u || { id: userId, email: null, name: null, picture: null },
-      grantedServices,
+      workspaceId,
+      workspaceSlug,
+      connections,
     },
   });
 }

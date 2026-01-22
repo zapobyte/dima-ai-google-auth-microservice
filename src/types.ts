@@ -9,6 +9,5 @@ export type GoogleService =
 export type JwtPayload = {
   userId: number;
   email: string | null;
-  grantedServices: GoogleService[];
 };
 
