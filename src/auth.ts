@@ -89,9 +89,34 @@ export function validateReturnTo(returnTo: string | null): string | null {
     return null;
   }
   const origin = u.origin;
-  if (config.allowedReturnOrigins.length === 0) return returnTo;
-  if (!config.allowedReturnOrigins.includes(origin)) return null;
-  return returnTo;
+
+  const hasAnyAllowlist =
+    config.allowedReturnOrigins.length > 0 || config.allowedReturnHostSuffixes.length > 0;
+  if (!hasAnyAllowlist) return returnTo;
+
+  if (config.allowedReturnOrigins.includes(origin)) return returnTo;
+
+  if (config.allowedReturnHostSuffixes.length > 0) {
+    const protocol = u.protocol;
+    const hostname = u.hostname.toLowerCase();
+    const port = u.port; // empty string if not explicitly specified
+
+    if (protocol !== "https:") return null;
+    if (port && port !== "443") return null;
+
+    for (const suffix of config.allowedReturnHostSuffixes) {
+      const suffixWithDot = `.${suffix}`;
+      if (!hostname.endsWith(suffixWithDot)) continue;
+
+      const sub = hostname.slice(0, hostname.length - suffixWithDot.length);
+      if (!sub) continue; // disallow apex
+      if (sub.includes(".")) continue; // disallow multi-level subdomains
+
+      return returnTo;
+    }
+  }
+
+  return null;
 }
 
 export function createRefreshSession(userId: number): { refreshToken: string; expiresAt: number } {

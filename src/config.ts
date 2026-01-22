@@ -27,6 +27,10 @@ const config = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
+  allowedReturnHostSuffixes: (optionalEnv("ALLOWED_RETURN_HOST_SUFFIXES", "") || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
   databasePath: databasePath?.toString()!,
 };
 

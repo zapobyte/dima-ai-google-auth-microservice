@@ -16,6 +16,7 @@ Copy `env.example` to your runtime environment and set values:
 - `BASE_URL`
 - `JWT_SECRET`
 - `ALLOWED_RETURN_ORIGINS`
+- `ALLOWED_RETURN_HOST_SUFFIXES` (optional)
 
 You must add this redirect URI in Google Cloud Console:
 - `${BASE_URL}/auth/google/callback`
@@ -29,6 +30,14 @@ You must add this redirect URI in Google Cloud Console:
 
 ### Environment variables
 See `env.example`.
+
+#### `returnTo` allowlisting
+The `returnTo` query parameter on `GET /auth/google/connect` is validated to prevent open redirects.
+
+- `ALLOWED_RETURN_ORIGINS`: exact allowed origins (scheme + host + optional port), e.g. `https://dima-ai.com`
+- `ALLOWED_RETURN_HOST_SUFFIXES` (optional): allows `https://<single-subdomain>.<suffix>` (single-level), e.g. `dima-ai.com` allows `https://dev-blana.dima-ai.com`
+
+Note: the suffix rule does not include the apex domain; add `https://dima-ai.com` explicitly via `ALLOWED_RETURN_ORIGINS` if needed.
 
 ### API summary
 - **GET** `/health`
