@@ -17,19 +17,33 @@ import {
 import type { GoogleService, JwtPayload } from "./types";
 
 const SERVICE_SCOPES: Record<GoogleService, string[]> = {
-  drive: ["https://www.googleapis.com/auth/drive"],
+  drive: [
+    "https://www.googleapis.com/auth/drive"
+  ],
   calendar: [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar",
+    // "https://www.googleapis.com/auth/calendar.readonly",
+    // "https://www.googleapis.com/auth/calendar.events",
   ],
   forms: [
-    "https://www.googleapis.com/auth/forms.body",
-    "https://www.googleapis.com/auth/forms.responses.readonly",
-    "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/forms",
+    // "https://www.googleapis.com/auth/forms.body",
+    // "https://www.googleapis.com/auth/forms.responses.readonly",
+    // "https://www.googleapis.com/auth/drive.readonly",
   ],
-  gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
-  youtube: ["https://www.googleapis.com/auth/youtube.readonly"],
-  analytics: ["https://www.googleapis.com/auth/analytics.readonly"],
+  gmail: [
+    "https://www.googleapis.com/auth/gmail",
+    // "https://www.googleapis.com/auth/gmail.readonly"
+  ],
+  youtube: [
+    "https://www.googleapis.com/auth/youtube",
+    // "https://www.googleapis.com/auth/youtube.readonly"
+  ],
+  analytics: [
+    "https://www.googleapis.com/auth/analytics",
+    // "https://www.googleapis.com/auth/analytics.readonly"
+
+  ],
 };
 
 export function getScopesForService(service: GoogleService): string[] {
